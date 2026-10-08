@@ -12,6 +12,7 @@ ea = (ROOT / "RectanglePendingEA.mq5").read_text()
 partial = (ROOT / "PartialProfit.mqh").read_text()
 markers = (ROOT / "PartialMarkers.mqh").read_text()
 links = (ROOT / "RectangleTrades.mqh").read_text()
+entry_math = (ROOT / "VirtualEntryMath.mqh").read_text()
 
 
 def expression(source, name):
@@ -29,7 +30,7 @@ def run(expr, **values):
         yes, no = rest.split(":", 1)
         expr = yes if run(condition, **values) else no
     return eval(expr, {"__builtins__": {}}, {
-        "MathMin": min, "MathFloor": math.floor,
+        "MathMin": min, "MathMax": max, "MathFloor": math.floor,
         "MathAbs": abs,
         "NormalizeDouble": round,
         "TickPrice": lambda price, tick: round(math.floor(price / tick + 0.5) * tick, 8),
@@ -37,37 +38,51 @@ def run(expr, **values):
     })
 
 
-# Pending-order branch and level expressions are read directly from the source.
-def order_levels(buy, current, rr=2):
-    inputs = dict(buy=buy, current=current, bottom=100, top=110, height=10, RR=rr, tick_size=0.01)
-    for name in ("stop_entry", "is_limit", "within_rectangle", "inside_entry", "outside_limit_entry", "limit_entry", "entry", "valid_limit", "tp", "stop_sl", "outside_limit_sl", "limit_sl", "sl"):
-        inputs[name] = run(expression(ea, name), **inputs)
-    return inputs
+def function_return(source, name):
+    body = source.split(name + "(", 1)[1].split("{", 1)[1].split("}", 1)[0]
+    return re.search(r"return ([^;]+);", body).group(1)
 
 
-for buy, current, limit, entry, sl, tp in [
-    (True, 90, False, 100, 90, 120),   # Buy Stop
-    (True, 120, True, 110, 100, 130),  # Buy Limit
-    (False, 120, False, 110, 120, 90), # Sell Stop
-    (False, 90, True, 100, 110, 80),   # Sell Limit
-    (True, 105, True, 100, 90, 120),   # Buy Limit inside rectangle
-    (False, 105, True, 110, 120, 90),  # Sell Limit inside rectangle
-    (True, 110, True, 100, 90, 120),   # Ask at top: bottom remains a valid Buy Limit
-    (False, 100, True, 110, 120, 90),  # Bid at bottom: top remains a valid Sell Limit
+selected_expr = function_return(entry_math, "SelectedEntryPrice")
+sl_expr = function_return(entry_math, "VirtualStopPrice")
+tp_expr = function_return(entry_math, "VirtualTargetPrice")
+reached_expr = function_return(entry_math, "VirtualEntryReached")
+allowed_expr = function_return(entry_math, "VirtualEntryAllowed")
+spread_expr = function_return(entry_math, "LiveEntrySpread")
+
+for buy, upper, expected_entry, expected_sl, expected_tp in [
+    (True, True, 110, 100, 130), (True, False, 100, 90, 120),
+    (False, True, 110, 120, 90), (False, False, 100, 110, 80),
 ]:
-    levels = order_levels(buy, current)
-    assert (levels["is_limit"], levels["entry"], levels["sl"], levels["tp"]) == (limit, entry, sl, tp)
-    if limit:
-        assert levels["valid_limit"]
+    entry = run(selected_expr, upper=upper, bottom=100, top=110)
+    sl = run(sl_expr, buy=buy, entry=entry, height=10)
+    tp = run(tp_expr, buy=buy, entry=entry, risk=10, reward_rr=2)
+    assert (entry, sl, tp) == (expected_entry, expected_sl, expected_tp)
 
-# Entry at the current quote still cannot produce a pending order.
-for buy, current in [(True, 100), (False, 110)]:
-    assert order_levels(buy, current)["stop_entry"] == current
+for rising, quote, expected in [
+    (True, 99.9, False), (True, 100, True), (True, 100.2, True),
+    (False, 100.1, False), (False, 100, True), (False, 99.8, True),
+]:
+    assert run(reached_expr, rising=rising, current=quote, entry=100) == expected
 
-for rr in (1, 2, 3):
-    for buy, current in [(True, 90), (True, 120), (False, 120), (False, 90), (True, 105), (False, 105)]:
-        levels = order_levels(buy, current, rr)
-        assert abs(levels["tp"] - levels["entry"]) / abs(levels["sl"] - levels["entry"]) == rr
+# A live 0.20 spread allows +/-0.20 around entry, but rejects larger jumps.
+live_spread = run(spread_expr, ask=100.20, bid=100.00)
+for quote, expected in [(100, True), (100.05, True), (100.20, True), (99.80, True),
+                        (100.21, False), (99.79, False), (100.30, False)]:
+    assert run(allowed_expr, current=quote, entry=100, spread=live_spread, tolerance=1e-8) == expected
+assert run(allowed_expr, current=100, entry=100, spread=0, tolerance=1e-8)
+assert not run(allowed_expr, current=100.01, entry=100, spread=0, tolerance=1e-8)
+# The same 0.15 entry distance becomes ineligible when the current spread shrinks to 0.10.
+for ask, bid, expected in [(100.15, 99.95, True), (100.15, 100.05, False)]:
+    spread = run(spread_expr, ask=ask, bid=bid)
+    assert run(allowed_expr, current=ask, entry=100, spread=spread, tolerance=1e-8) == expected
+
+# Execution TP uses the current quote and saved SL, retaining requested RR.
+for buy, quote, sl in [(True, 100.05, 90), (False, 99.95, 110)]:
+    risk = abs(quote - sl)
+    for rr in (1, 2, 3):
+        tp = run(tp_expr, buy=buy, entry=quote, risk=risk, reward_rr=rr)
+        assert math.isclose(abs(tp - quote) / risk, rr)
 
 # Verify executable exit-side prices: a Buy exits at Bid and a Sell exits at Ask.
 marker_level_expr = re.search(r"return (buy \? entry\+risk\*PartialLevelRR[^;]+);", markers).group(1)
@@ -136,4 +151,4 @@ for buy, entry, sl, expected in [
         values[name] = run(expression(links, name), **values)
     assert run(legacy_expr.replace("\n", " "), **values) == expected
 
-print("Passed: pending-order branches, RR examples, partial marker levels, break-even protection, exit-quote triggers, volume steps, percentage endpoints, minimum remainders, tiny-position guards and legacy rectangle matching.")
+print("Passed: upper/lower buy/sell levels, rising/falling triggers, live-spread and shrinking/zero-spread boundaries, execution RR, partial markers, break-even, exit quotes, lot steps/remainders and legacy matching.")

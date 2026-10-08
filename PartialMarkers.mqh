@@ -34,8 +34,8 @@ void DrawPartialMarker(const string identity,const ulong ticket,const double lev
    ObjectSetInteger(0,line,OBJPROP_HIDDEN,true);
    ObjectSetInteger(0,line,OBJPROP_BACK,true);
    string text="PR "+DoubleToString(lots,2)+" "+DoubleToString(money,2);
-   string tooltip=text+" "+AccountInfoString(ACCOUNT_CURRENCY)+
-                  " #"+IntegerToString((long)ticket)+" estimated partial profit";
+   string reference=ticket>0 ? " #"+IntegerToString((long)ticket) : " waiting trade";
+   string tooltip=text+" "+AccountInfoString(ACCOUNT_CURRENCY)+reference+" estimated partial profit";
    ObjectSetString(0,line,OBJPROP_TOOLTIP,tooltip);
    KeepMarker(keep,line);
    int x,y;
@@ -128,6 +128,8 @@ void SyncPartialMarkers()
    string keep[];
    if(IsPartialProfit)
    {
+      for(int i=0; i<ArraySize(rectangles); i++)
+         if(IsRectangle(rectangles[i].name)) VirtualPartialMarker(i,keep);
       for(int i=OrdersTotal()-1; i>=0; i--)
       {
          ulong ticket=OrderGetTicket(i);
