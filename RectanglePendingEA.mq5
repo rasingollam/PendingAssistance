@@ -1,5 +1,5 @@
 #property strict
-#property version   "2.01"
+#property version   "2.02"
 #property description "Cached rectangle entries with market execution, configurable RR and partial profit."
 #property description "RiskMoney is in account currency. Deinitialization preserves chart rectangles."
 

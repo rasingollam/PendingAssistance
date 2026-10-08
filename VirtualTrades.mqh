@@ -275,9 +275,11 @@ void SyncVirtualLevels()
       VirtualPlan plan;
       if(!ReadVirtualPlan(i,plan) || plan.state!=1) continue;
       string name=level_prefix+StringSubstr(RectangleTradeTag(i),4);
-      VirtualLevel(name+"_Entry",plan.entry,plan.buy ? clrSeaGreen : clrIndianRed,"Waiting entry",keep);
-      VirtualLevel(name+"_SL",plan.sl,clrTomato,"Waiting SL",keep);
-      VirtualLevel(name+"_TP",plan.tp,clrLimeGreen,"Waiting TP",keep);
+      VirtualLevel(name+"_Entry",plan.entry,clrLime,"Waiting entry",keep);
+      VirtualLevel(name+"_SL",plan.sl,clrRed,"Waiting SL",keep);
+      VirtualLevel(name+"_TP",plan.tp,clrRed,"Waiting TP",keep);
+      DrawLevelCaption(name+"_SL_Text",plan.sl,"SL",clrWhite,"Waiting SL",keep);
+      DrawLevelCaption(name+"_TP_Text",plan.tp,"TP",clrWhite,"Waiting TP",keep);
    }
    for(int i=ObjectsTotal(0,0,-1)-1; i>=0; i--)
    {

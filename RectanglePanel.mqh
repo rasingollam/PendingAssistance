@@ -63,8 +63,8 @@ void PositionButtons(const int index)
    string name=rectangles[index].name;
    VirtualPlan plan;
    bool cached=ReadVirtualPlan(index,plan);
-   if(!IsRectangle(name) || (!cached && (RectangleHasTrade(index) ||
-      !ObjectGetInteger(0,name,OBJPROP_SELECTED))))
+   if(!IsRectangle(name) || !ObjectGetInteger(0,name,OBJPROP_SELECTED) ||
+      (!cached && RectangleHasTrade(index)))
    {
       RemoveButtons(rectangles[index].id);
       return;

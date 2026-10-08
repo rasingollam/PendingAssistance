@@ -19,11 +19,38 @@ bool MarkerProfit(const bool buy,const double lots,const double entry,const doub
                                    _Symbol,lots,entry,level,money);
 }
 
+void DrawLevelCaption(const string label,const double level,const string text,
+                      const color text_color,const string tooltip,string &keep[])
+{
+   int x,y;
+   int chart_height=(int)ChartGetInteger(0,CHART_HEIGHT_IN_PIXELS,0);
+   if(!ChartTimePriceToXY(0,0,iTime(_Symbol,_Period,0),level,x,y) || y<20 || y>=chart_height)
+   {
+      ObjectDelete(0,label); // Offscreen levels must not leave floating labels on the chart.
+      return;
+   }
+   if(ObjectFind(0,label)<0 && !ObjectCreate(0,label,OBJ_LABEL,0,0,0)) return;
+   ObjectSetInteger(0,label,OBJPROP_CORNER,CORNER_LEFT_UPPER);
+   ObjectSetInteger(0,label,OBJPROP_ANCHOR,ANCHOR_LEFT_LOWER);
+   // Match the inset and compact size of the native TP/SL captions in the reference chart.
+   ObjectSetInteger(0,label,OBJPROP_XDISTANCE,7);
+   ObjectSetInteger(0,label,OBJPROP_YDISTANCE,y-1);
+   ObjectSetInteger(0,label,OBJPROP_COLOR,text_color);
+   ObjectSetInteger(0,label,OBJPROP_FONTSIZE,7);
+   ObjectSetInteger(0,label,OBJPROP_SELECTABLE,false);
+   ObjectSetInteger(0,label,OBJPROP_SELECTED,false);
+   ObjectSetInteger(0,label,OBJPROP_HIDDEN,true);
+   ObjectSetInteger(0,label,OBJPROP_BACK,false);
+   ObjectSetString(0,label,OBJPROP_FONT,"Arial");
+   ObjectSetString(0,label,OBJPROP_TEXT,text);
+   ObjectSetString(0,label,OBJPROP_TOOLTIP,tooltip);
+   KeepMarker(keep,label);
+}
+
 void DrawPartialMarker(const string identity,const ulong ticket,const double level,
                        const double lots,const double money,string &keep[])
 {
    string line=MARKER_PREFIX+identity;
-   string label=line+"_Text";
    if(ObjectFind(0,line)<0 && !ObjectCreate(0,line,OBJ_HLINE,0,0,level)) return;
    ObjectSetDouble(0,line,OBJPROP_PRICE,level);
    ObjectSetInteger(0,line,OBJPROP_COLOR,clrDarkGray);
@@ -38,29 +65,7 @@ void DrawPartialMarker(const string identity,const ulong ticket,const double lev
    string tooltip=text+" "+AccountInfoString(ACCOUNT_CURRENCY)+reference+" estimated partial profit";
    ObjectSetString(0,line,OBJPROP_TOOLTIP,tooltip);
    KeepMarker(keep,line);
-   int x,y;
-   int chart_height=(int)ChartGetInteger(0,CHART_HEIGHT_IN_PIXELS,0);
-   if(!ChartTimePriceToXY(0,0,iTime(_Symbol,_Period,0),level,x,y) || y<20 || y>=chart_height)
-   {
-      ObjectDelete(0,label); // Offscreen levels must not leave floating labels on the chart.
-      return;
-   }
-   if(ObjectFind(0,label)<0 && !ObjectCreate(0,label,OBJ_LABEL,0,0,0)) return;
-   ObjectSetInteger(0,label,OBJPROP_CORNER,CORNER_LEFT_UPPER);
-   ObjectSetInteger(0,label,OBJPROP_ANCHOR,ANCHOR_LEFT_LOWER);
-   // Match the inset and compact size of the native TP/SL captions in the reference chart.
-   ObjectSetInteger(0,label,OBJPROP_XDISTANCE,7);
-   ObjectSetInteger(0,label,OBJPROP_YDISTANCE,y-1);
-   ObjectSetInteger(0,label,OBJPROP_COLOR,clrDarkGray);
-   ObjectSetInteger(0,label,OBJPROP_FONTSIZE,7);
-   ObjectSetInteger(0,label,OBJPROP_SELECTABLE,false);
-   ObjectSetInteger(0,label,OBJPROP_SELECTED,false);
-   ObjectSetInteger(0,label,OBJPROP_HIDDEN,true);
-   ObjectSetInteger(0,label,OBJPROP_BACK,false);
-   ObjectSetString(0,label,OBJPROP_FONT,"Arial");
-   ObjectSetString(0,label,OBJPROP_TEXT,text);
-   ObjectSetString(0,label,OBJPROP_TOOLTIP,tooltip);
-   KeepMarker(keep,label);
+   DrawLevelCaption(line+"_Text",level,text,clrDarkGray,tooltip,keep);
 }
 
 void PendingPartialMarker(const ulong ticket,string &keep[])

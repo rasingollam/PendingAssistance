@@ -1,4 +1,4 @@
-# RectanglePendingEA 2.01
+# RectanglePendingEA 2.02
 
 Compiled with `D:\Trading\MetaEditor64.exe` from the `D:\Trading\terminal64.exe` installation. Refresh MT5 Navigator and attach `PendingAssistance > RectanglePendingEA` to a chart.
 
@@ -17,7 +17,7 @@ The normal panel is 164 x 58 pixels and follows rectangle movement/zoom. It dock
 
 ## Waiting status and Cancel
 
-An armed trade shows BUY/SELL WAITING, the chosen edge and entry, SL, TP, estimated lots and estimated money risk. Cancel disarms it without deleting the rectangle. Waiting status and Cancel remain visible even when the rectangle is deselected. Entry, SL and TP are drawn as thin dash-dot lines; the eligible partial level is also plotted.
+An armed trade shows BUY/SELL WAITING, the chosen edge and entry, SL, TP, estimated lots and estimated money risk. Cancel disarms it without deleting the rectangle. Waiting status and Cancel are visible only when the rectangle is selected; deselecting hides the panel while keeping the trade armed and its price lines visible. Entry is green; SL and TP are red. All three lines are dash-dot, width 1. White `SL` and `TP` captions share the PR label's Arial 7 font, left inset of 7 pixels and 1-pixel spacing above the line. The eligible partial level is also plotted.
 
 Levels are saved when armed. Moving the rectangle afterward only moves the panel. Cancel and re-arm to change the trade. Deleting/renaming a rectangle cancels its still-waiting trade. Snapshots and edge selection survive ordinary EA/terminal restarts in terminal globals, keyed by account, symbol and rectangle name. The same symbol/name identifies the same cached trade across chart instances.
 
