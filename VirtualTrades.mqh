@@ -278,6 +278,9 @@ void SyncVirtualLevels()
       VirtualLevel(name+"_Entry",plan.entry,clrLime,"Waiting entry",keep);
       VirtualLevel(name+"_SL",plan.sl,clrRed,"Waiting SL",keep);
       VirtualLevel(name+"_TP",plan.tp,clrRed,"Waiting TP",keep);
+      DrawLevelCaption(name+"_Entry_Text",plan.entry,
+                       (plan.buy ? "BUY " : "SELL ")+DoubleToString(plan.lots,2),
+                       clrWhite,"Waiting entry",keep);
       DrawLevelCaption(name+"_SL_Text",plan.sl,"SL",clrWhite,"Waiting SL",keep);
       DrawLevelCaption(name+"_TP_Text",plan.tp,"TP",clrWhite,"Waiting TP",keep);
    }
