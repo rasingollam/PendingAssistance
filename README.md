@@ -1,4 +1,4 @@
-# RectanglePendingEA 2.02
+# RectanglePendingEA 2.04
 
 Compiled with `D:\Trading\MetaEditor64.exe` from the `D:\Trading\terminal64.exe` installation. Refresh MT5 Navigator and attach `PendingAssistance > RectanglePendingEA` to a chart.
 
@@ -34,13 +34,13 @@ For rectangle bottom 100, top 110, RR 2:
 
 New trades are monitored in the EA; no new broker pending orders are submitted. Buy watches Ask, Sell watches Bid. The direction toward entry is inferred from the quote when armed, so no Stop/Limit selection is needed. Execution is evaluated on fresh chart ticks, including after restoring a saved plan.
 
-At the trigger, absolute quote distance from entry must be no greater than the chart symbol's live spread (`Ask - Bid`). The spread is recalculated from the refreshed quote immediately before sending. A jump beyond that current spread cancels the plan and logs the reason in Experts. The EA does not chase the missed trade or wait for a later return to its entry. There is no fixed distance input, and spread is not cached when the trade is armed. Older cached plans also use this live-spread rule.
+At the trigger, absolute quote distance from entry must be no greater than the chart symbol's live spread (`Ask - Bid`). The spread is recalculated from the refreshed quote immediately before sending. A jump beyond that current spread keeps the plan armed: the EA retries on later ticks when price returns to the triggered side of entry within the live spread. There is no expiry or fixed distance input, and spread is not cached when the trade is armed. Older cached plans also use this live-spread rule.
 
 Lots are recalculated from the saved money budget and current quote-to-saved-SL distance, rounded down to the broker's volume step. SL stays fixed. TP is recalculated from that quote and SL to preserve the saved RR before submission. Actual lots/TP may therefore differ from the original cached preview. Broker fill slippage after submission can still alter actual risk/RR; this feature controls the EA's accepted quote, not a guaranteed final fill.
 
-A rejected/invalid entry cancels its plan. A delayed/uncertain outcome shows CHECK TRADE / HISTORY and is never automatically resent. Cancel is available only while waiting, before a market request starts; it cannot undo a submitted market order. Active matching broker trades are used to reconcile uncertain outcomes.
+Invalid broker stops, volume, failed order checks and definite market rejections keep the plan waiting and retry on the next eligible tick, subject to a fresh entry/spread check. There is no entry retry cooldown; old saved retry timestamps are ignored. Cancel or deleting/renaming the rectangle stops waiting. A successful entry consumes the plan; closing that position does not re-arm it. A delayed/uncertain outcome shows CHECK TRADE / HISTORY and is never automatically resent, avoiding duplicate positions. Cancel is available only while waiting, before a market request starts; it cannot undo a submitted market order. Active matching broker trades are used to reconcile uncertain outcomes.
 
-The terminal, EA, connection and Algo Trading must remain active for execution. If an entry reaches its trigger while trading is disabled, it is cancelled when that tick is processed. Removing the EA pauses its saved waiting trades until reattachment. On netting accounts, a new plan cannot be armed/executed if a position already exists on the symbol, avoiding combined-position risk. Hedging accounts support separate trades per rectangle.
+The terminal, EA, connection and Algo Trading must remain active for execution. If trading is disabled at the trigger, the plan stays waiting until trading is available and price is eligible again. Removing the EA pauses its saved waiting trades until reattachment. On netting accounts, a new plan cannot be armed if a position already exists on the symbol; an armed plan waits while the symbol is occupied, avoiding combined-position risk. Hedging accounts support separate trades per rectangle.
 
 Older broker pending orders are preserved and continue to be managed; the update does not replace/cancel them.
 

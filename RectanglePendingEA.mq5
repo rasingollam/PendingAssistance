@@ -1,5 +1,5 @@
 #property strict
-#property version   "2.02"
+#property version   "2.04"
 #property description "Cached rectangle entries with market execution, configurable RR and partial profit."
 #property description "RiskMoney is in account currency. Deinitialization preserves chart rectangles."
 
@@ -88,7 +88,7 @@ double TickPrice(const double price,const double tick_size)
 }
 
 bool RiskVolume(const bool buy,const double entry,const double sl,
-                double &volume,double &estimated_loss,const double risk_budget=0)
+                double &volume,double &estimated_loss,const double risk_budget=0,const bool report_errors=true)
 {
    double budget=risk_budget>0 ? risk_budget : RiskMoney;
    double minimum=SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN);
@@ -96,28 +96,28 @@ bool RiskVolume(const bool buy,const double entry,const double sl,
    double step=SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_STEP);
    if(minimum<=0 || maximum<minimum || step<=0)
    {
-      ReportError("Invalid broker volume settings.");
+      if(report_errors) ReportError("Invalid broker volume settings.");
       return false;
    }
    double profit=0;
    if(!OrderCalcProfit(buy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL,
                        _Symbol,minimum,entry,sl,profit) || profit>=0)
    {
-      ReportError("Cannot calculate the SL risk. Error "+IntegerToString(GetLastError()));
+      if(report_errors) ReportError("Cannot calculate the SL risk. Error "+IntegerToString(GetLastError()));
       return false;
    }
    double raw_volume=budget/(-profit)*minimum;
    volume=NormalizeDouble(MathFloor(MathMin(raw_volume,maximum)/step)*step,8);
    if(volume<minimum-1e-10)
    {
-      ReportError("The minimum lot size exceeds your risk budget. Minimum estimated loss: "+
+      if(report_errors) ReportError("The minimum lot size exceeds your risk budget. Minimum estimated loss: "+
                   DoubleToString(-profit,2)+" "+AccountInfoString(ACCOUNT_CURRENCY));
       return false;
    }
    if(!OrderCalcProfit(buy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL,
                        _Symbol,volume,entry,sl,profit) || profit>=0)
    {
-      ReportError("Cannot verify the selected volume's risk.");
+      if(report_errors) ReportError("Cannot verify the selected volume's risk.");
       return false;
    }
    estimated_loss=-profit;
@@ -129,7 +129,7 @@ bool RiskVolume(const bool buy,const double entry,const double sl,
          !OrderCalcProfit(buy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL,
                           _Symbol,volume,entry,sl,profit) || profit>=0 || -profit>budget+1e-8)
       {
-         ReportError("No valid lot size fits your risk budget.");
+         if(report_errors) ReportError("No valid lot size fits your risk budget.");
          return false;
       }
       estimated_loss=-profit;

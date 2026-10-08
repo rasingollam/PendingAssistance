@@ -50,6 +50,24 @@ reached_expr = function_return(entry_math, "VirtualEntryReached")
 allowed_expr = function_return(entry_math, "VirtualEntryAllowed")
 spread_expr = function_return(entry_math, "LiveEntrySpread")
 
+# A missed crossing can return to the eligible side and execute once, for either direction.
+for rising, quotes in [(True, [99.5, 100.5, 100.3, 99.9, 100.05]),
+                        (False, [100.5, 99.5, 99.7, 100.1, 99.95])]:
+    eligible = [run(reached_expr, rising=rising, current=quote, entry=100) and
+                run(allowed_expr, current=quote, entry=100, spread=0.1, tolerance=1e-8)
+                for quote in quotes]
+    assert eligible == [False, False, False, False, True]
+
+# Regression: neither pre-send distance guard may cancel the saved waiting plan.
+virtual = (ROOT / "VirtualTrades.mqh").read_text()
+distance_guards = re.findall(r"if\(!VirtualEntryAllowed\([^\n]+\)\)\s*([^\n]+)", virtual)
+assert len(distance_guards) == 2
+assert all(guard.strip().startswith("return;") for guard in distance_guards)
+rejection = virtual.split("MarkRectangleUncertain(index,false);", 1)[1].split("void ProcessVirtualEntries", 1)[0]
+assert "SetVirtualState(index,1);" in rejection
+assert "ReportVirtualRetry(" in rejection
+assert ".VRetry" not in virtual
+
 for buy, upper, expected_entry, expected_sl, expected_tp in [
     (True, True, 110, 100, 130), (True, False, 100, 90, 120),
     (False, True, 110, 120, 90), (False, False, 100, 110, 80),

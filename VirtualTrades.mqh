@@ -38,6 +38,11 @@ void SetVirtualState(const int index,const int state)
    GlobalVariablesFlush();
 }
 
+void ReportVirtualRetry(const int index,const string reason)
+{
+   Print("RectanglePendingEA: ",rectangles[index].name," - ",reason,"; still waiting, retry on the next eligible tick.");
+}
+
 bool HasVirtualPlan(const int index)
 {
    string key=RectangleTradeKey(index)+".VState";
@@ -141,14 +146,10 @@ void ProcessVirtualPlan(const int index)
    if(tick<=0) return;
    double spread=LiveEntrySpread(quote.ask,quote.bid);
    if(!VirtualEntryAllowed(current,plan.entry,spread,tick*1e-6))
-   {
-      CancelVirtualPlan(index,"Entry missed: quote distance exceeded the live spread");
-      return;
-   }
-   if(!PartialTradingAllowed()) { CancelVirtualPlan(index,"Trading unavailable at the trigger"); return; }
-   if(NettingSymbolOccupied()) { CancelVirtualPlan(index,"A position already exists on this netting symbol"); return; }
+      return; // Keep armed; a later tick may return to the entry within the live spread.
+   if(!PartialTradingAllowed() || NettingSymbolOccupied()) return;
    double risk=plan.buy ? current-plan.sl : plan.sl-current;
-   if(risk<=0) { CancelVirtualPlan(index,"Quote is beyond the planned SL"); return; }
+   if(risk<=0) return;
    double tp=TickPrice(VirtualTargetPrice(plan.buy,current,risk,plan.reward_rr),tick);
    double stops=SymbolInfoInteger(_Symbol,SYMBOL_TRADE_STOPS_LEVEL)*_Point;
    double exit_quote=plan.buy ? quote.bid : quote.ask;
@@ -157,13 +158,13 @@ void ProcessVirtualPlan(const int index)
    if(tp<=0 || sl_distance<=0 || tp_distance<=0 ||
       sl_distance+tick*1e-6<stops || tp_distance+tick*1e-6<stops)
    {
-      CancelVirtualPlan(index,"Broker stop-distance rules do not allow the cached SL/TP");
+      ReportVirtualRetry(index,"Broker stop-distance rules do not allow the cached SL/TP");
       return;
    }
    double lots=0,loss=0;
-   if(!RiskVolume(plan.buy,current,plan.sl,lots,loss,plan.risk_money))
+   if(!RiskVolume(plan.buy,current,plan.sl,lots,loss,plan.risk_money,false))
    {
-      CancelVirtualPlan(index,"No valid market volume fits the risk budget");
+      ReportVirtualRetry(index,"No valid market volume fits the risk budget");
       return;
    }
    MqlTradeRequest request={};
@@ -181,7 +182,7 @@ void ProcessVirtualPlan(const int index)
    request.comment=RectangleTradeTag(index);
    if(!PartialFilling(request.type_filling) || !OrderCheck(request,check))
    {
-      CancelVirtualPlan(index,"Market order check failed: "+check.comment);
+      ReportVirtualRetry(index,"Market order check failed: "+check.comment);
       return;
    }
    // One last quote check immediately before claiming the saved plan and sending.
@@ -190,10 +191,7 @@ void ProcessVirtualPlan(const int index)
    double latest_price=plan.buy ? latest.ask : latest.bid;
    double latest_spread=LiveEntrySpread(latest.ask,latest.bid);
    if(!VirtualEntryAllowed(latest_price,plan.entry,latest_spread,tick*1e-6))
-   {
-      CancelVirtualPlan(index,"Entry distance exceeded the refreshed live spread before submission");
-      return;
-   }
+      return; // Keep waiting if the refreshed quote has moved too far away.
    if(MathAbs(latest_price-current)>tick*1e-6) return; // Rebuild price/risk sizing on the next tick.
    request.deviation=(ulong)MathFloor(latest_spread/_Point+1e-8);
    if(!GlobalVariableSetOnCondition(RectangleTradeKey(index)+".VState",2,1)) return;
@@ -224,8 +222,8 @@ void ProcessVirtualPlan(const int index)
    else
    {
       MarkRectangleUncertain(index,false);
-      SetVirtualState(index,0);
-      Print("RectanglePendingEA: market entry rejected for ",rectangles[index].name,": ",result.comment);
+      SetVirtualState(index,1);
+      ReportVirtualRetry(index,"Market entry rejected: "+result.comment);
    }
 }
 
