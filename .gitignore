@@ -1,0 +1,13 @@
+# MetaTrader compiled programs and compiler/runtime logs
+*.ex5
+*.ex4
+*.log
+
+# Python verification caches
+__pycache__/
+*.py[cod]
+
+# Local operating-system files
+Thumbs.db
+Desktop.ini
+.DS_Store
